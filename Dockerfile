@@ -7,4 +7,5 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
-CMD ["python", "main.py"]
+# Запускаем через healthcheck.py
+CMD ["python", "healthcheck.py"]
