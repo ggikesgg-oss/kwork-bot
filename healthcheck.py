@@ -1,19 +1,18 @@
-from flask import Flask
-import threading
 import os
-import sys
+import threading
+from flask import Flask
 
 app = Flask(__name__)
 
 @app.route('/')
 @app.route('/health')
 def health():
-    return "Kwork Bot is running!", 200
+    return "OK", 200
 
 def run_bot():
-    # Импортируем и запускаем бота
-    from main import KworkMonitor
+    # Импортируем main и запускаем
     import asyncio
+    from main import KworkMonitor
     
     async def start():
         monitor = KworkMonitor()
@@ -22,10 +21,10 @@ def run_bot():
     asyncio.run(start())
 
 if __name__ == '__main__':
-    # Запускаем бота в отдельном потоке
+    # Запускаем бота в фоновом потоке
     bot_thread = threading.Thread(target=run_bot, daemon=True)
     bot_thread.start()
     
-    # Запускаем веб-сервер
+    # Запускаем Flask для healthcheck
     port = int(os.environ.get("PORT", 10000))
     app.run(host='0.0.0.0', port=port)
