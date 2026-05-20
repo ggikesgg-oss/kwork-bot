@@ -1,24 +1,15 @@
-FROM python:3.11-slim
-
-# Устанавливаем зависимости системы
-RUN apt-get update && apt-get install -y \
-    wget \
-    gnupg \
-    curl \
-    && rm -rf /var/lib/apt/lists/*
+FROM mcr.microsoft.com/playwright/python:v1.40.0-jammy
 
 WORKDIR /app
 
-# Копируем requirements и устанавливаем зависимости
+# Копируем requirements
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
 
-# Устанавливаем браузер для Playwright
-RUN playwright install chromium
-RUN playwright install-deps
+# Устанавливаем зависимости
+RUN pip install --no-cache-dir -r requirements.txt
 
 # Копируем весь код
 COPY . .
 
-# Запускаем бота
-CMD ["python", "main.py"]
+# Запускаем
+CMD ["python", "healthcheck.py"]
