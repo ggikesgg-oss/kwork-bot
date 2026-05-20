@@ -2,23 +2,18 @@ import asyncio
 import random
 from playwright.async_api import async_playwright
 import re
-from config import KWORK_CATEGORY, DELAY_BETWEEN_REQUESTS
 from database import db
 
 class KworkParser:
     def __init__(self):
         self.base_url = "https://kwork.ru/projects"
     
-    def get_category(self):
-        """Получает категорию из БД"""
-        category = db.get_filter('category')
-        return category if category else KWORK_CATEGORY
-    
     async def get_new_projects(self, last_check_ids=None):
         projects = []
         
+        # Получаем фильтры из БД
         filters = db.get_filters_for_parser()
-        category = self.get_category()
+        category = db.get_filter('category') or "design"
         
         print(f"🔍 Поиск в категории: {category}")
         print(f"💰 Бюджет: {filters['budget_min']} - {filters['budget_max']} ₽")
@@ -26,7 +21,7 @@ class KworkParser:
         print(f"❌ Exclude: {filters['keywords_exclude']}")
         
         async with async_playwright() as p:
-            # ВАЖНО: headless=True для сервера!
+            # headless=True для сервера
             browser = await p.chromium.launch(headless=True)
             page = await browser.new_page()
             
@@ -63,7 +58,7 @@ class KworkParser:
                             continue
                         project_id = project_id.group(1)
                         
-                        # Получаем текст всей карточки
+                        # Получаем текст карточки
                         card = link
                         for _ in range(3):
                             parent = await card.query_selector('xpath=..')
@@ -75,16 +70,16 @@ class KworkParser:
                         card_text = await card.inner_text()
                         card_text = card_text.strip()
                         
-                        # Пропускаем навигационные элементы
+                        # Пропускаем навигацию
                         if len(card_text) < 20 or any(word in card_text.lower() for word in ['рубрики', 'смотреть открытые']):
                             continue
                         
-                        # Извлекаем название
+                        # Название
                         lines = card_text.split('\n')
                         title = lines[0] if lines else "Без названия"
                         title = title.strip()
                         
-                        # Извлекаем цену
+                        # Цена
                         price = 0
                         price_match = re.search(r'(\d+[\d\s]*)\s*₽', card_text)
                         if price_match:
@@ -96,7 +91,7 @@ class KworkParser:
                         # Фильтрация
                         text_lower = (title + " " + card_text).lower()
                         
-                        # Проверяем exclude
+                        # Exclude
                         excluded = False
                         for kw in filters["keywords_exclude"]:
                             if kw.lower() in text_lower:
@@ -106,7 +101,7 @@ class KworkParser:
                         if excluded:
                             continue
                         
-                        # Проверяем бюджет
+                        # Бюджет
                         if price > 0 and price < filters["budget_min"]:
                             print(f"   ❌ Бюджет: {price} < {filters['budget_min']}")
                             continue
@@ -114,7 +109,7 @@ class KworkParser:
                             print(f"   ❌ Бюджет: {price} > {filters['budget_max']}")
                             continue
                         
-                        # Проверяем include
+                        # Include
                         if filters["keywords_include"]:
                             has_include = any(kw.lower() in text_lower for kw in filters["keywords_include"])
                             if not has_include:

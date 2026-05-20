@@ -10,7 +10,6 @@ def health():
     return "OK", 200
 
 def run_bot():
-    # Импортируем main и запускаем
     import asyncio
     from main import KworkMonitor
     
