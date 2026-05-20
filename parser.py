@@ -2,7 +2,7 @@ import asyncio
 import random
 from playwright.async_api import async_playwright
 import re
-from config import DEFAULT_CATEGORY, DELAY_BETWEEN_REQUESTS
+from config import KWORK_CATEGORY, DELAY_BETWEEN_REQUESTS
 from database import db
 
 class KworkParser:
@@ -10,9 +10,9 @@ class KworkParser:
         self.base_url = "https://kwork.ru/projects"
     
     def get_category(self):
-        """Получает категорию из БД или возвращает значение по умолчанию"""
+        """Получает категорию из БД"""
         category = db.get_filter('category')
-        return category if category else DEFAULT_CATEGORY
+        return category if category else KWORK_CATEGORY
     
     async def get_new_projects(self, last_check_ids=None):
         projects = []
@@ -26,7 +26,8 @@ class KworkParser:
         print(f"❌ Exclude: {filters['keywords_exclude']}")
         
         async with async_playwright() as p:
-            browser = await p.chromium.launch(headless=False)
+            # ВАЖНО: headless=True для сервера!
+            browser = await p.chromium.launch(headless=True)
             page = await browser.new_page()
             
             await page.set_viewport_size({"width": 1920, "height": 1080})
@@ -36,6 +37,7 @@ class KworkParser:
                 print(f"Парсинг URL: {url}")
                 
                 await page.goto(url, timeout=30000)
+                await page.wait_for_load_state("networkidle")
                 await page.wait_for_timeout(5000)
                 
                 # Прокручиваем для загрузки
@@ -108,6 +110,9 @@ class KworkParser:
                         if price > 0 and price < filters["budget_min"]:
                             print(f"   ❌ Бюджет: {price} < {filters['budget_min']}")
                             continue
+                        if price > 0 and price > filters["budget_max"]:
+                            print(f"   ❌ Бюджет: {price} > {filters['budget_max']}")
+                            continue
                         
                         # Проверяем include
                         if filters["keywords_include"]:
@@ -132,10 +137,10 @@ class KworkParser:
                         continue
                 
                 print(f"\n✅ Найдено подходящих заказов: {len(projects)}")
-                await browser.close()
                 
             except Exception as e:
                 print(f"Ошибка парсинга: {e}")
+            finally:
                 await browser.close()
         
         return projects
